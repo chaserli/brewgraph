@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Unit tests
+        run: xcodebuild -project HomebrewLens.xcodeproj -scheme HomebrewLens -configuration Debug test
+
+      - name: Build Release app
+        run: |
+          xcodebuild \
+            -project HomebrewLens.xcodeproj \
+            -scheme HomebrewLens \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            ENABLE_HARDENED_RUNTIME=YES
+
+      - name: Inspect local signing
+        run: |
+          codesign -dvvv --entitlements :- build/DerivedData/Build/Products/Release/BrewGraph.app
+          spctl -a -vv build/DerivedData/Build/Products/Release/BrewGraph.app || true
+
+      - name: Package app
+        run: ditto -c -k --keepParent build/DerivedData/Build/Products/Release/BrewGraph.app "build/BrewGraph-${GITHUB_REF_NAME}.zip"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          body: |
+            This is a BrewGraph build for early testing.
+
+            It is not notarized. macOS Gatekeeper may block the first launch. Use right click -> Open, or remove quarantine manually if you trust this build:
+
+            ```bash
+            xattr -dr com.apple.quarantine /Applications/BrewGraph.app
+            ```
+
+            For source builds, clone the repository and run:
+
+            ```bash
+            xcodebuild -project HomebrewLens.xcodeproj -scheme HomebrewLens -configuration Debug test
+            ./script/build_and_run.sh --verify
+            ```
+          files: build/BrewGraph-${{ github.ref_name }}.zip

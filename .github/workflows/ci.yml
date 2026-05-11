@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "codex/**"
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Debug build
+        run: xcodebuild -project HomebrewLens.xcodeproj -scheme HomebrewLens -configuration Debug build
+
+      - name: Unit tests
+        run: xcodebuild -project HomebrewLens.xcodeproj -scheme HomebrewLens -configuration Debug test
+
+      - name: Release build
+        run: xcodebuild -project HomebrewLens.xcodeproj -scheme HomebrewLens -configuration Release build
